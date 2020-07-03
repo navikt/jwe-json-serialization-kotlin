@@ -1,5 +1,6 @@
 package no.nav.security.jwe
 
+import com.nimbusds.jose.CompressionAlgorithm
 import com.nimbusds.jose.EncryptionMethod
 import com.nimbusds.jose.crypto.impl.AESGCM
 import com.nimbusds.jose.crypto.impl.ContentCryptoProvider
@@ -11,6 +12,7 @@ import com.nimbusds.jose.jwk.JWKSet
 import com.nimbusds.jose.jwk.RSAKey
 import com.nimbusds.jose.util.Base64URL
 import com.nimbusds.jose.util.Container
+import com.nimbusds.jose.util.DeflateUtils
 import net.minidev.json.JSONArray
 import net.minidev.json.JSONObject
 import net.minidev.json.parser.JSONParser
@@ -22,12 +24,16 @@ class NoMatchingKeyException : RuntimeException("Found no mathing key")
 fun encryptAsJsonSerializedJWE(
     plaintext: ByteArray,
     recipientKeys: JWKSet,
-    additionalAuthenticatedData: ByteArray? = null
+    additionalAuthenticatedData: ByteArray? = null,
+    useCompression: Boolean = false
 ): JSONObject {
     val jwe = JSONObject()
     val protectedHeader = JSONObject().apply {
         this["alg"] = "RSA-OAEP-256"
         this["enc"] = "A256GCM"
+        if (useCompression) {
+            this["zip"] = CompressionAlgorithm.DEF.name
+        }
     }
     jwe["protected"] = Base64URL.encode(protectedHeader.toJSONString().toByteArray(Charsets.UTF_8)).toString()
     if (additionalAuthenticatedData != null) {
@@ -38,7 +44,10 @@ fun encryptAsJsonSerializedJWE(
 
     val cek: SecretKey = ContentCryptoProvider.generateCEK(EncryptionMethod.A256GCM, jcaContext.getSecureRandom())
     val ivContainer = Container(AESGCM.generateIV(jcaContext.getSecureRandom()))
-    val authCipherText = AESGCM.encrypt(cek, ivContainer, plaintext, jwe.getAdditionalAuthenticatedData(), jcaContext.provider)
+    val authCipherText = AESGCM.encrypt(
+        cek, ivContainer,
+        if (useCompression) DeflateUtils.compress(plaintext) else plaintext,
+        jwe.getAdditionalAuthenticatedData(), jcaContext.provider)
     jwe["iv"] = Base64URL.encode(ivContainer.get()).toString()
     jwe["ciphertext"] = Base64URL.encode(authCipherText.cipherText).toString()
     jwe["tag"] = Base64URL.encode(authCipherText.authenticationTag).toString()
@@ -64,13 +73,18 @@ fun encryptAsJsonSerializedJWE(
     return jwe
 }
 
-fun decryptJsonSerializedJWE(jwe: JSONObject, jwkSet: JWKSet): String {
+fun decryptJsonSerializedJWEtoString(jwe: JSONObject, jwkSet: JWKSet): String =
+    String(decryptJsonSerializedJWE(jwe, jwkSet), Charsets.UTF_8)
+
+fun decryptJsonSerializedJWE(jwe: JSONObject, jwkSet: JWKSet): ByteArray {
     val cipherText = Base64URL(jwe.getAsString("ciphertext"))
     val iv = Base64URL(jwe.getAsString("iv"))
     val protectedHeaderBase64String: String = jwe.getAsString("protected")
     val protectedHeaderBytes: ByteArray = Base64URL(protectedHeaderBase64String).decode()
     val protectedHeader: JSONObject = JSONParser(JSONParser.MODE_STRICTEST).parse(protectedHeaderBytes) as JSONObject
     val authTag = Base64URL(jwe.getAsString("tag"))
+    val compression:CompressionAlgorithm? = protectedHeader.getAsString("zip")?.let { CompressionAlgorithm(it) }
+
     (jwe["recipients"] as JSONArray).forEach { recipientUntyped ->
         val recipient = recipientUntyped as JSONObject
         val recipientUnprotectedHeader = recipient["header"] as JSONObject
@@ -101,7 +115,11 @@ fun decryptJsonSerializedJWE(jwe: JSONObject, jwkSet: JWKSet): String {
                 authTag.decode(),
                 securityProvider
             )
-            return String(plainText, Charsets.UTF_8)
+            return if (compression == CompressionAlgorithm.DEF) {
+                DeflateUtils.decompress(plainText)
+            } else {
+                plainText
+            }
         }
     }
     throw NoMatchingKeyException()

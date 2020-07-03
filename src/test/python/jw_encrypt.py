@@ -28,6 +28,7 @@ protected_header = {
     #"alg": "RSA-OAEP-256",
     #"enc": "A256CBC-HS512",
     "typ": "JWE",
+    "zip": "DEF"
     #"kid": public_key.key_id,
 }
 

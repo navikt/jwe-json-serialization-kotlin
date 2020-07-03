@@ -24,12 +24,12 @@ class PyJWCryptoInteropDecryptTest {
         val payload = data.getAsString("payload")
 
         val oneJwkSet = JWKSet(privateJWK)
-        Assertions.assertEquals(payload, decryptJsonSerializedJWE(jwe, oneJwkSet))
+        Assertions.assertEquals(payload, decryptJsonSerializedJWEtoString(jwe, oneJwkSet))
         val anotherJwkSet = JWKSet(otherPrivateJWK)
-        Assertions.assertEquals(payload, decryptJsonSerializedJWE(jwe, anotherJwkSet))
+        Assertions.assertEquals(payload, decryptJsonSerializedJWEtoString(jwe, anotherJwkSet))
         val nonMatchingJwkSet = JWKSet(nonMatchingPrivateJWK)
         assertThrows<NoMatchingKeyException> {
-            decryptJsonSerializedJWE(jwe, nonMatchingJwkSet)
+            decryptJsonSerializedJWEtoString(jwe, nonMatchingJwkSet)
         }
     }
 
@@ -47,12 +47,35 @@ class PyJWCryptoInteropDecryptTest {
 
 
         val oneJwkSet = JWKSet(privateJWK)
-        Assertions.assertEquals(payload, decryptJsonSerializedJWE(jwe, oneJwkSet))
+        Assertions.assertEquals(payload, decryptJsonSerializedJWEtoString(jwe, oneJwkSet))
         val anotherJwkSet = JWKSet(otherPrivateJWK)
-        Assertions.assertEquals(payload, decryptJsonSerializedJWE(jwe, anotherJwkSet))
+        Assertions.assertEquals(payload, decryptJsonSerializedJWEtoString(jwe, anotherJwkSet))
         val nonMatchingJwkSet = JWKSet(nonMatchingPrivateJWK)
         assertThrows<NoMatchingKeyException> {
-            decryptJsonSerializedJWE(jwe, nonMatchingJwkSet)
+            decryptJsonSerializedJWEtoString(jwe, nonMatchingJwkSet)
+        }
+    }
+
+    @Test
+    fun `Decrypt commpressed JWE from Python JWCrypto with AdditionalAuthenticatedData`() {
+        val exampleWithAAD: String = PyJWCryptoInteropDecryptTest::class.java.getResource("/pyjwcrypto_aad_compressed.json")
+            .readText().trim()
+        val data: JSONObject =
+            JSONParser(JSONParser.MODE_STRICTEST).parse(exampleWithAAD.toByteArray(Charsets.UTF_8)) as JSONObject
+        val privateJWK = JWK.parse(data["private"] as JSONObject)
+        val otherPrivateJWK = JWK.parse(data["other_private"] as JSONObject)
+        val nonMatchingPrivateJWK = makeJwkRSA().private
+        val jwe = data["jwe"] as JSONObject
+        val payload = data.getAsString("payload")
+
+
+        val oneJwkSet = JWKSet(privateJWK)
+        Assertions.assertEquals(payload, decryptJsonSerializedJWEtoString(jwe, oneJwkSet))
+        val anotherJwkSet = JWKSet(otherPrivateJWK)
+        Assertions.assertEquals(payload, decryptJsonSerializedJWEtoString(jwe, anotherJwkSet))
+        val nonMatchingJwkSet = JWKSet(nonMatchingPrivateJWK)
+        assertThrows<NoMatchingKeyException> {
+            decryptJsonSerializedJWEtoString(jwe, nonMatchingJwkSet)
         }
     }
 
