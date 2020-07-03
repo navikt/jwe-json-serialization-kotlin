@@ -83,6 +83,24 @@ class PyJWCryptoInteropEncryptTest {
         }
     }
 
+    @Test
+    fun `Encrypt for only one recipient, then decrypt with Python JWCrypto`() {
+        val payload = "this is some plain text"
+        val plaintext = payload.toByteArray(Charsets.UTF_8)
+        val jwkPair1 = makeJwkRSA()
+        val jwkPair3 = makeJwkRSA()
+        val recipientsPublic = JWKSet(listOf(jwkPair1.public))
+        val jwe = encryptAsJsonSerializedJWE(plaintext = plaintext, recipientKeys = recipientsPublic)
+
+        println(jwe)
+
+        assertEquals(payload, decryptWithPythonJWCrypto(jwe, jwkPair1.private))
+
+        assertThrows<ProcessExitedWithError> {
+            decryptWithPythonJWCrypto(jwe, jwkPair3.private)
+        }
+    }
+
 }
 
 private fun decryptWithPythonJWCrypto(jwe: JSONObject, jwk: JWK): String {
