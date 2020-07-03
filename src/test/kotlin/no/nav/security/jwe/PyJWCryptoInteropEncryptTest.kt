@@ -92,7 +92,21 @@ class PyJWCryptoInteropEncryptTest {
         val recipientsPublic = JWKSet(listOf(jwkPair1.public))
         val jwe = encryptAsJsonSerializedJWE(plaintext = plaintext, recipientKeys = recipientsPublic)
 
-        println(jwe)
+        assertEquals(payload, decryptWithPythonJWCrypto(jwe, jwkPair1.private))
+
+        assertThrows<ProcessExitedWithError> {
+            decryptWithPythonJWCrypto(jwe, jwkPair3.private)
+        }
+    }
+
+    @Test
+    fun `JWCrypto crashes when keyId is correct, but keydata is wrong`() {
+        val payload = "this is some plain text"
+        val plaintext = payload.toByteArray(Charsets.UTF_8)
+        val jwkPair1 = makeJwkRSA()
+        val jwkPair3 = makeJwkRSA(keyId = jwkPair1.private.keyID)
+        val recipientsPublic = JWKSet(listOf(jwkPair1.public))
+        val jwe = encryptAsJsonSerializedJWE(plaintext = plaintext, recipientKeys = recipientsPublic)
 
         assertEquals(payload, decryptWithPythonJWCrypto(jwe, jwkPair1.private))
 
