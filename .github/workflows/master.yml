@@ -13,9 +13,16 @@ jobs:
       - uses: actions/setup-java@v1
         with:
           java-version: '12.x'
+      - uses: actions/setup-python@v2
+          with:
+            python-version: '3.7'
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install jwcrypto
       - name: test and build
-        run: ./gradlew clean build
-#        run: ./gradlew -Pversion="0.$(echo $GITHUB_SHA | cut -c1-7)" build publish
-#        env:
-#          ORG_GRADLE_PROJECT_githubUser: x-access-token
-#          ORG_GRADLE_PROJECT_githubPassword: ${{ secrets.GITHUB_TOKEN }}
+          run: ./gradlew clean build
+#          run: ./gradlew -Pversion="0.$(echo $GITHUB_SHA | cut -c1-7)" build publish
+#          env:
+#            ORG_GRADLE_PROJECT_githubUser: x-access-token
+#            ORG_GRADLE_PROJECT_githubPassword: ${{ secrets.GITHUB_TOKEN }}

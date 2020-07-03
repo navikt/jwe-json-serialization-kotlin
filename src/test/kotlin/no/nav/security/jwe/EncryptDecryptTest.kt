@@ -18,8 +18,6 @@ class EncryptDecryptTest {
         val recipientsPublic = JWKSet(listOf(jwkPair1.public, jwkPair2.public))
         val jwe = encryptAsJsonSerializedJWE(plaintext = plaintext, recipientKeys = recipientsPublic)
 
-        println(jwe)
-
         val oneJwkSet = JWKSet(jwkPair1.private)
         Assertions.assertEquals(payload, decryptJsonSerializedJWE(jwe, oneJwkSet))
         val anotherJwkSet = JWKSet(jwkPair2.private)
